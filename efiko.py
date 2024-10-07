@@ -36,6 +36,8 @@ st.set_page_config(
 # Access the Gemini API key
 gemini_api_key = st.secrets["gemini"]["api_key"]
 
+st.write(f"API Key from secrets: {st.secrets['gemini']['api_key'][:5]}...")
+
 # Configure the Gemini API
 genai.configure(api_key=('gemini_api_key'))
 model = genai.GenerativeModel('gemini-pro')
