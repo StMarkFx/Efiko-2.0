@@ -1,0 +1,10 @@
+streamlit
+google-generativeai
+langchain
+langchain-community
+reportlab
+Pillow
+sentence-transformers
+chromadb
+PyPDF2
+python-dotenv
