@@ -36,10 +36,10 @@ st.set_page_config(
 # Access the Gemini API key
 gemini_api_key = st.secrets["gemini"]["api_key"]
 
-st.write(f"API Key from secrets: {st.secrets['gemini']['api_key'][:5]}...")
+#st.write(f"API Key from secrets: {st.secrets['gemini']['api_key'][:5]}...")
 
 # Configure the Gemini API
-genai.configure(api_key=('gemini_api_key'))
+genai.configure(api_key=gemini_api_key)
 model = genai.GenerativeModel('gemini-pro')
 
 # Initialize HuggingFace embeddings
@@ -49,27 +49,55 @@ def get_current_time():
     return datetime.now().strftime("%H:%M")
 
 def process_document(file):
-    with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.name)[1]) as temp_file:
-        temp_file.write(file.getvalue())
-        temp_file_path = temp_file.name
+    temp_file_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.name)[1]) as temp_file:
+            temp_file.write(file.getvalue())
+            temp_file_path = temp_file.name
 
-    if file.name.endswith('.pdf'):
-        loader = PyPDFLoader(temp_file_path)
-    elif file.name.endswith('.docx'):
-        loader = UnstructuredFileLoader(temp_file_path)
-    elif file.name.endswith('.txt'):
-        loader = TextLoader(temp_file_path)
-    else:
-        os.unlink(temp_file_path)
+        if file.name.endswith('.pdf'):
+            loader = PyPDFLoader(temp_file_path)
+        elif file.name.endswith('.docx'):
+            loader = UnstructuredFileLoader(temp_file_path)
+        elif file.name.endswith('.txt'):
+            loader = TextLoader(temp_file_path)
+        else:
+            st.error("Unsupported file format. Please upload a PDF, DOCX, or TXT file.")
+            return None
+
+        documents = loader.load()
+        
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+        texts = text_splitter.split_documents(documents)
+        
+        return Chroma.from_documents(texts, embeddings)
+    except ImportError as e:
+        st.error("Error: Missing dependencies for processing this file type.")
+        st.info("Please install the required packages by running:")
+        st.code("pip install pypdf")
         return None
+    except Exception as e:
+        if "Descriptors cannot be created directly" in str(e):
+            st.error("Error: Incompatible protobuf version detected.")
+            st.info("To resolve this issue, please try the following steps:")
+            st.code("""
+            1. Downgrade the protobuf package:
+               pip install protobuf==3.20.0
 
-    documents = loader.load()
-    os.unlink(temp_file_path)
-    
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-    texts = text_splitter.split_documents(documents)
-    
-    return Chroma.from_documents(texts, embeddings)
+            2. If the above doesn't work, try setting an environment variable:
+               export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
+
+            3. Restart your Streamlit app after making these changes.
+            """)
+        else:
+            st.error(f"An error occurred while processing the document: {str(e)}")
+        return None
+    finally:
+        if temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.unlink(temp_file_path)
+            except Exception as e:
+                st.warning(f"Could not remove temporary file: {str(e)}")
 
 class ConversationBuffer:
     def __init__(self, max_turns=5):
@@ -116,8 +144,17 @@ def get_gemini_response(conversation_buffer, prompt, vectorstore=None):
     else:
         full_context = f"{base_context}\n{conversation_context}\n\nUser query: {prompt}"
 
-    response = model.generate_content(full_context)
-    return response.text
+    try:
+        response = model.generate_content(full_context)
+        if hasattr(response, 'text'):
+            return response.text
+        elif hasattr(response, 'parts'):
+            return ' '.join(part.text for part in response.parts)
+        else:
+            return str(response)
+    except Exception as e:
+        st.error(f"An error occurred while generating the response: {str(e)}")
+        return "I'm sorry, I encountered an error. Could you please try again or rephrase your question?"
 
 def export_conversation_to_pdf():
     buffer = BytesIO()
@@ -169,8 +206,11 @@ def chat_interface():
         if uploaded_file is not None:
             with st.spinner("Processing document..."):
                 vectorstore = process_document(uploaded_file)
-            st.session_state.vectorstore = vectorstore
-            st.success("Document processed successfully!")
+            if vectorstore is not None:
+                st.session_state.vectorstore = vectorstore
+                st.success("Document processed successfully!")
+            else:
+                st.warning("Document processing failed. Please check the error message above.")
         
         st.header("Session Management")
         
