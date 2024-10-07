@@ -5,7 +5,7 @@ langchain-community
 reportlab
 Pillow
 sentence-transformers
-chromadb
+faiss-cpu
 PyPDF2
 python-dotenv
 pypdf

@@ -4,7 +4,6 @@ import google.generativeai as genai
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.document_loaders import PyPDFLoader, TextLoader
 from langchain.document_loaders.unstructured import UnstructuredFileLoader
-from langchain.vectorstores import Chroma
 from dotenv import load_dotenv
 import tempfile
 import os
@@ -18,7 +17,7 @@ from PIL import Image
 load_dotenv()
 
 try:
-    from langchain.vectorstores import Chroma
+    from langchain.vectorstores import FAISS
     from langchain.embeddings import HuggingFaceEmbeddings
     embeddings = HuggingFaceEmbeddings()
 except ImportError:
@@ -71,27 +70,15 @@ def process_document(file):
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
         texts = text_splitter.split_documents(documents)
         
-        vectorstore = Chroma.from_documents(texts, embeddings, persist_directory=None)
+        # Replace Chroma with FAISS
+        return FAISS.from_documents(texts, embeddings)
     except ImportError as e:
         st.error("Error: Missing dependencies for processing this file type.")
         st.info("Please install the required packages by running:")
-        st.code("pip install pypdf")
+        st.code("pip install pypdf faiss-cpu")
         return None
     except Exception as e:
-        if "Descriptors cannot be created directly" in str(e):
-            st.error("Error: Incompatible protobuf version detected.")
-            st.info("To resolve this issue, please try the following steps:")
-            st.code("""
-            1. Downgrade the protobuf package:
-               pip install protobuf==3.20.0
-
-            2. If the above doesn't work, try setting an environment variable:
-               export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
-
-            3. Restart your Streamlit app after making these changes.
-            """)
-        else:
-            st.error(f"An error occurred while processing the document: {str(e)}")
+        st.error(f"An error occurred while processing the document: {str(e)}")
         return None
     finally:
         if temp_file_path and os.path.exists(temp_file_path):
