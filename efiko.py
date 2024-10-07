@@ -4,6 +4,7 @@ import google.generativeai as genai
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.document_loaders import PyPDFLoader, TextLoader
 from langchain.document_loaders.unstructured import UnstructuredFileLoader
+from langchain.vectorstores import Chroma
 from dotenv import load_dotenv
 import tempfile
 import os
@@ -70,7 +71,7 @@ def process_document(file):
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
         texts = text_splitter.split_documents(documents)
         
-        return Chroma.from_documents(texts, embeddings)
+        vectorstore = Chroma.from_documents(texts, embeddings, persist_directory=None)
     except ImportError as e:
         st.error("Error: Missing dependencies for processing this file type.")
         st.info("Please install the required packages by running:")
