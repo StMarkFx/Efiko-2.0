@@ -32,8 +32,12 @@ st.set_page_config(
     layout="centered",  
     initial_sidebar_state="expanded"
 )
+
+# Access the Gemini API key
+gemini_api_key = st.secrets["gemini"]["api_key"]
+
 # Configure the Gemini API
-genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
+genai.configure(api_key=('gemini_api_key'))
 model = genai.GenerativeModel('gemini-pro')
 
 # Initialize HuggingFace embeddings
