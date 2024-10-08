@@ -10,3 +10,5 @@ PyPDF2
 python-dotenv
 pypdf
 protobuf>=3.20.0,<4.0.0
+pinecone-client
+celery redis
