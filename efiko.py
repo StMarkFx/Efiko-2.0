@@ -53,7 +53,7 @@ def get_current_time():
 def process_document(file):
     MAX_FILE_SIZE = 15 * 1024 * 1024  # 15 MB limit
     if file.size > MAX_FILE_SIZE:
-        st.error(f"File size exceeds the limit of {MAX_FILE_SIZE/1024/1024:.2f} MB. Please upload a smaller file.")
+        st.error(f"File size exceeds the limit of 15MB. Please upload a smaller file.")
         return None
 
     temp_file_path = None
@@ -238,10 +238,10 @@ def chat_interface():
         MAX_FILE_SIZE = 15 * 1024 * 1024  # 15 MB limit
         uploaded_file = st.file_uploader("Choose a file", type=['pdf', 'docx', 'txt'], 
                                          accept_multiple_files=False,
-                                         help=f"Max file size: {MAX_FILE_SIZE/1024/1024:.0f}MB")
+                                         help=f"Max file size: 15MB")
         if uploaded_file is not None:
             if uploaded_file.size > MAX_FILE_SIZE:
-                st.error(f"File size exceeds the limit of {MAX_FILE_SIZE/1024/1024:.0f} MB. Please upload a smaller file.")
+                st.error(f"File size exceeds the limit of 15MB. Please upload a smaller file.")
             else:
                 # Check if the file has changed
                 if "last_uploaded_file" not in st.session_state or st.session_state.last_uploaded_file != uploaded_file.name:
