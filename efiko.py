@@ -13,6 +13,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_RIGHT
 from io import BytesIO
 from PIL import Image
+import pickle
 
 load_dotenv()
 
@@ -86,6 +87,16 @@ def process_document(file):
                 os.unlink(temp_file_path)
             except Exception as e:
                 st.warning(f"Could not remove temporary file: {str(e)}")
+
+def save_vectorstore(vectorstore, filename="vectorstore.pkl"):
+    with open(filename, "wb") as f:
+        pickle.dump(vectorstore, f)
+
+def load_vectorstore(filename="vectorstore.pkl"):
+    if os.path.exists(filename):
+        with open(filename, "rb") as f:
+            return pickle.load(f)
+    return None
 
 class ConversationBuffer:
     def __init__(self, max_turns=5):
@@ -168,6 +179,10 @@ def chat_interface():
     st.title("Efiko - Your Study Companion")
     st.subheader("Ask me anything about your studies!")
 
+    # Initialize vectorstore in session state if it doesn't exist
+    if "vectorstore" not in st.session_state:
+        st.session_state.vectorstore = load_vectorstore()
+
     # Sidebar for logo, document upload and session management
     with st.sidebar:
         # Add the logo at the top of the sidebar
@@ -192,14 +207,20 @@ def chat_interface():
         st.header("Document Upload")
         uploaded_file = st.file_uploader("Choose a file", type=['pdf', 'docx', 'txt'])
         if uploaded_file is not None:
-            with st.spinner("Processing document..."):
-                vectorstore = process_document(uploaded_file)
-            if vectorstore is not None:
-                st.session_state.vectorstore = vectorstore
-                st.success("Document processed successfully!")
+            # Check if the file has changed
+            if "last_uploaded_file" not in st.session_state or st.session_state.last_uploaded_file != uploaded_file.name:
+                with st.spinner("Processing document..."):
+                    vectorstore = process_document(uploaded_file)
+                if vectorstore is not None:
+                    st.session_state.vectorstore = vectorstore
+                    save_vectorstore(vectorstore)
+                    st.session_state.last_uploaded_file = uploaded_file.name
+                    st.success("Document processed and saved successfully!")
+                else:
+                    st.warning("Document processing failed. Please check the error message above.")
             else:
-                st.warning("Document processing failed. Please check the error message above.")
-        
+                st.info("Document already processed. Using existing vectorstore.")
+
         st.header("Session Management")
         
         if st.button("Save Chat Session"):
@@ -244,12 +265,23 @@ def chat_interface():
         st.session_state.conversation_buffer.add_message("user", prompt)
 
         with st.spinner("Efiko is thinking..."):
-            vectorstore = st.session_state.get('vectorstore')
+            vectorstore = st.session_state.vectorstore
             response = get_gemini_response(st.session_state.conversation_buffer, prompt, vectorstore)
 
         st.chat_message("assistant").markdown(f"{response} - {get_current_time()}")
         st.session_state.messages.append({"role": "assistant", "content": response, "time": get_current_time()})
         st.session_state.conversation_buffer.add_message("assistant", response)
+
+def cleanup_old_vectorstores(max_age_days=2):
+    current_time = datetime.now()
+    for filename in os.listdir():
+        if filename.startswith("vectorstore_") and filename.endswith(".pkl"):
+            file_path = os.path.join(os.getcwd(), filename)
+            file_age = current_time - datetime.fromtimestamp(os.path.getctime(file_path))
+            if file_age.days > max_age_days:
+                os.remove(file_path)
+
+# Call this function periodically, e.g., once a day or once a week
 
 if __name__ == "__main__":
     chat_interface()
