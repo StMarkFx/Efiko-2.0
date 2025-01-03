@@ -2,8 +2,8 @@ import streamlit as st
 from datetime import datetime
 import google.generativeai as genai
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.document_loaders import PyPDFLoader, TextLoader
-from langchain.document_loaders.unstructured import UnstructuredFileLoader
+from langchain_community.document_loaders import PyPDFLoader, TextLoader
+from langchain_community.document_loaders.unstructured import UnstructuredFileLoader
 from dotenv import load_dotenv
 import tempfile
 import os
@@ -15,6 +15,9 @@ from io import BytesIO
 from PIL import Image
 import pickle
 from PyPDF2 import PdfReader
+from web_search import WebSearchTool
+from duckduckgo_search import DDGS
+from typing import List, Optional
 
 load_dotenv()
 
@@ -162,16 +165,35 @@ def get_gemini_response(conversation_buffer, prompt, vectorstore=None):
 
     Remember, your role is not just to provide information, but to inspire a journey of discovery and lifelong learning.
 
+    You also have access to real-time web search results when needed. If a query requires current information or fact-checking, you can use these search results to provide up-to-date information.
+
     Previous conversation:
     """
     conversation_context = conversation_buffer.get_context()
     
+    # Initialize web search tool
+    search_tool = WebSearchTool(max_results=3)
+    
+    # Check if the prompt seems like it needs current information
+    needs_search = any(keyword in prompt.lower() for keyword in [
+        "latest", "current", "recent", "news", "today", "now",
+        "what is", "who is", "where is", "when"
+    ])
+    
+    search_context = ""
+    if needs_search:
+        search_results = search_tool.search(prompt)
+        if search_results:
+            search_context = "\n\nRelevant web search results:\n"
+            for idx, result in enumerate(search_results, 1):
+                search_context += f"{idx}. {result['title']}\n{result['snippet']}\n"
+    
     if vectorstore:
         relevant_docs = vectorstore.similarity_search(prompt, k=2)
         doc_context = "\n".join([doc.page_content for doc in relevant_docs])
-        full_context = f"{base_context}\n{conversation_context}\n\nRelevant document content:\n{doc_context}\n\nUser query: {prompt}"
+        full_context = f"{base_context}\n{conversation_context}\n{search_context}\nRelevant document content:\n{doc_context}\n\nUser query: {prompt}"
     else:
-        full_context = f"{base_context}\n{conversation_context}\n\nUser query: {prompt}"
+        full_context = f"{base_context}\n{conversation_context}\n{search_context}\n\nUser query: {prompt}"
 
     try:
         response = model.generate_content(full_context)
