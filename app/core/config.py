@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     
     # Security
     GEMINI_API_KEY: str
+    HUGGINGFACEHUB_API_TOKEN: str
     SECRET_KEY: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
