@@ -26,5 +26,3 @@ env/
 ENV/
 .env
 .streamlit/secrets.toml
-
-efiko.py
