@@ -1,1 +1,8 @@
-libprotobuf-dev
+build-essential
+python3-dev
+libpoppler-cpp-dev
+pkg-config
+libmagic1
+tesseract-ocr
+libreoffice
+pandoc

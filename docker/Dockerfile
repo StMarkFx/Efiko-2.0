@@ -5,6 +5,13 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
+    python3-dev \
+    libpoppler-cpp-dev \
+    pkg-config \
+    libmagic1 \
+    tesseract-ocr \
+    libreoffice \
+    pandoc \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install dependencies
